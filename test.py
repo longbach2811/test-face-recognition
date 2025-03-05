@@ -23,7 +23,7 @@ class InferenceOnnx:
         input_name = self.ort_session.get_inputs()[0].name
         output_name = self.ort_session.get_outputs()[0].name
         result = torch.Tensor(self.ort_session.run([output_name], {input_name: input_data})[0])
-        result = self.l2_norm(result, axis=1)  # Apply correct normalization
+        result = self.l2_norm(result, axis=1)
         return result[0]
        
     def l2_norm(self, result, axis=1):
@@ -35,7 +35,7 @@ class InferenceOnnx:
     def preprocess(self, image):
         # image, _, _ = letterbox(image, new_shape=self.size, color=(0, 0, 0))
         image = cv2.resize(image, dsize=self.size)
-        cv2.imwrite("image.jpg", image)
+        # cv2.imwrite("image.jpg", image)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image_data = np.array(image) / 255.0
         image_data = np.transpose(image_data, (2, 0, 1))
@@ -44,34 +44,46 @@ class InferenceOnnx:
 
 
 class TestFaceRecognition:
-    def __init__(self, model_dir, data_dir):
+    def __init__(self, model_dir, data_dir, ratio=0.5):
+        self.model = InferenceOnnx(model_dir)
         self.model = InferenceOnnx(model_dir)
         self.data_dir = data_dir
-        self.train_image_paths, self.train_labels, self.val_image_paths, self.val_labels = self._make_dataset(self.data_dir)
+        self.train_image_paths, train_labels, self.val_image_paths, val_labels = self._make_dataset(self.data_dir, ratio)
+        print(f"Number of image for reference: {len(self.train_image_paths)}")
+        print(f"Number of image for validation: {len(self.val_image_paths)}")
+        overall_label = train_labels + val_labels
+ 
+        unique_labels = sorted(set(overall_label))
+        self.label_to_idx = {label: index for index, label in enumerate(unique_labels)}
+
+        self.train_labels = [self.label_to_idx[label] for label in train_labels]
+        self.val_labels = [self.label_to_idx[label] for label in val_labels]
     
-    def _make_dataset(self, data_dir):
+    def _make_dataset(self, data_dir, ratio):
         train_image_paths, train_labels = [], []
         val_image_paths, val_labels = [], []
-        for root, _, files in os.walk(data_dir):
-            if len(files) < 2:
-                continue 
-            train_image_path = os.path.join(root, files[0])
-            train_image_paths.append(train_image_path)
-            train_label = int(files[0].split("_")[0])
-            train_labels.append(train_label)
+        
+        list_of_person = os.listdir(data_dir)
+        for person in list_of_person:
+            person_path = os.path.join(data_dir, person)
+            item_list =  os.listdir(person_path)
+            split_number = int(len(item_list) * ratio)
+
+            for element in item_list[:split_number]:
+                image_path = os.path.join(person_path, element)
+                train_image_paths.append(image_path)
+                train_labels.append(person)
+                
+            for element in item_list[split_number:]:
+                image_path = os.path.join(person_path, element)
+                val_image_paths.append(image_path)
+                val_labels.append(person)
             
-            val_image_path = os.path.join(root, files[1])
-            val_image_paths.append(val_image_path)
-            val_label = int(files[1].split("_")[0])
-            val_labels.append(val_label)
-            
-        train_image_paths, train_labels = zip(*sorted(zip(train_image_paths, train_labels), key=lambda x: x[1]))
-        val_image_paths, val_labels = zip(*sorted(zip(val_image_paths, val_labels), key=lambda x: x[1]))
         return train_image_paths, train_labels, val_image_paths, val_labels
     
     def _get_embeddings(self, image_paths):
         embeddings = []
-        for image_path in tqdm(image_paths, desc="Compute  ", leave=False):
+        for image_path in tqdm(image_paths, desc="Compute embedded", leave=False):
             embedding = self.model.inference_onnx_model(image_path)
             embeddings.append(embedding.cpu().numpy())
         return embeddings
@@ -82,7 +94,7 @@ class TestFaceRecognition:
         
         correct_predictions = 0
         for val_embedding, val_label in tqdm(zip(val_embeddings, self.val_labels), desc="Validating", leave=False):
-            val_embedding = val_embedding.reshape(1, -1)  # Ensure correct shape for cosine similarity
+            val_embedding = val_embedding.reshape(1, -1)
             similarities = cosine_similarity(val_embedding, train_embeddings)[0]
             predicted_label = self.train_labels[np.argmax(similarities)]
             if predicted_label == val_label:
@@ -97,7 +109,8 @@ class TestFaceRecognition:
 if __name__ == "__main__":
     test = TestFaceRecognition(
         model_dir=r"D:\longbh\FaceRecognition\test-face-recognition\model_zoo\R100.onnx",
-        data_dir=r"D:\longbh\FaceRecognition\test-face-recognition\test_sets\lfw_2nd_cut\gen"
+        data_dir=r"D:\longbh\FaceRecognition\Face_databases\calfw\calfw_seperated",
+        ratio=0.75
     )
     
     test.validate()
