@@ -23,7 +23,7 @@ class InferenceOnnx:
         input_name = self.ort_session.get_inputs()[0].name
         output_name = self.ort_session.get_outputs()[0].name
         result = torch.Tensor(self.ort_session.run([output_name], {input_name: input_data})[0])
-        result = self.l2_norm(result, axis=1)
+        # result = self.l2_norm(result, axis=1)
         return result[0]
        
     def l2_norm(self, result, axis=1):
@@ -37,8 +37,10 @@ class InferenceOnnx:
         image = cv2.resize(image, dsize=self.size)
         # cv2.imwrite("image.jpg", image)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image_data = np.array(image) / 255.0
-        image_data = np.transpose(image_data, (2, 0, 1))
+        image = np.divide(image, 255.0)
+        image = np.subtract(image, 0.5)
+        image = np.divide(image, 0.5)
+        image_data = np.transpose(image, (2, 0, 1))
         image_data = np.expand_dims(image_data, axis=0).astype(np.float32)
         return image_data
 
@@ -99,7 +101,6 @@ class TestFaceRecognition:
             predicted_label = self.train_labels[np.argmax(similarities)]
             if predicted_label == val_label:
                 correct_predictions += 1
-            # break
         
         accuracy = correct_predictions / len(self.val_labels) if self.val_labels else 0
         print(f"Validation accuracy: {accuracy * 100:.2f}%")
@@ -108,9 +109,9 @@ class TestFaceRecognition:
 
 if __name__ == "__main__":
     test = TestFaceRecognition(
-        model_dir=r"D:\longbh\FaceRecognition\test-face-recognition\model_zoo\R100.onnx",
-        data_dir=r"D:\longbh\FaceRecognition\Face_databases\calfw\calfw_seperated",
-        ratio=0.75
+        model_dir=r"D:\longbh\FaceRecognition\test-face-recognition\model_zoo\ms1m_megaface_r50_pfc.onnx",
+        data_dir=r"D:\longbh\FaceRecognition\test-face-recognition\LFW_without_Mask_extract",
+        ratio=0.5
     )
     
     test.validate()
