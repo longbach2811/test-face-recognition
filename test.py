@@ -5,7 +5,9 @@ import torch
 import os
 from sklearn.metrics.pairwise import cosine_similarity
 # from sklearn.metrics.pairwise import cosine_distances
+# from sklearn.metrics.pairwise import euclidean_distances
 from tqdm import tqdm
+
 
 class InferenceOnnx:
     def __init__(self, model_dir, size=(112, 112)):
@@ -70,6 +72,12 @@ class TestFaceRecognition:
             person_path = os.path.join(data_dir, person)
             item_list =  os.listdir(person_path)
             split_number = int(len(item_list) * ratio)
+            
+            # handle the case if the item equal or less than 1:
+            if len(item_list) <= 1:
+                train_image_paths.extend([os.path.join(person_path, element) for element in item_list])
+                train_labels.extend([person] * len(item_list))
+                continue
 
             for element in item_list[:split_number]:
                 image_path = os.path.join(person_path, element)
@@ -110,8 +118,8 @@ class TestFaceRecognition:
 if __name__ == "__main__":
     test = TestFaceRecognition(
         model_dir=r"D:\longbh\FaceRecognition\test-face-recognition\model_zoo\ms1m_megaface_r50_pfc.onnx",
-        data_dir=r"D:\longbh\FaceRecognition\test-face-recognition\LFW_without_Mask_extract",
-        ratio=0.5
+        data_dir=r"D:\longbh\FaceRecognition\test-face-recognition\lfw-deepfunneled_crop",
+        ratio=0.7
     )
     
     test.validate()
