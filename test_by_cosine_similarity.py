@@ -56,7 +56,7 @@ class InferenceOnnx:
         input_name = self.ort_session.get_inputs()[0].name
         output_name = self.ort_session.get_outputs()[0].name
         result = torch.Tensor(self.ort_session.run([output_name], {input_name: input_data})[0])
-        # result = self.l2_norm(result, axis=1)
+        result = self.l2_norm(result, axis=1)
         return result[0]
        
     def l2_norm(self, result, axis=1):
@@ -68,7 +68,7 @@ class InferenceOnnx:
     def preprocess(self, image):
         image, _, _ = letterbox(image, new_shape=self.size, color=(0, 0, 0))
         image = cv2.resize(image, dsize=self.size)
-        cv2.imwrite("image.jpg", image)
+        # cv2.imwrite("image.jpg", image)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = np.divide(image, 255.0)
         image = np.subtract(image, 0.5)
@@ -149,7 +149,7 @@ class TestFaceRecognition:
 if __name__ == "__main__":
     test = TestFaceRecognition(
         model_dir=r"D:\longbh\FaceRecognition\test-face-recognition\model_zoo\ms1m_megaface_r50_pfc.onnx",
-        data_dir=r"D:\longbh\FaceRecognition\test-face-recognition\lfw-deepfunneled_crop",
+        data_dir=r"D:\longbh\FaceRecognition\Face_databases\lfw-deepfunneled_faces_cutted",
         ratio=0.5
     )
     
